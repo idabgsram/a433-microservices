@@ -1,0 +1,40 @@
+name: Publish
+
+on:
+  push:
+    branches: ["karsajobs"]
+
+jobs:
+  build-and-push:
+    name: Publish Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: github-login
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.DEPLOY_SECRET }}
+      - name: setup-go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.15
+      - name: install-dependencies
+        run: |
+          go mod download
+      - name: lint-dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+      - name: test-app
+        run: |
+          go test -v -short --count=1 $(go list ./...)
+      - name: build-app-karsajobs
+        env:
+          username: ${{ github.actor }}
+        run: |
+          docker build -t ghcr.io/$username/karsajobs:latest .
+          docker push ghcr.io/$username/karsajobs:latest
+      
